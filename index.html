@@ -174,9 +174,23 @@ function persistBrain(){
   renderStats();renderMemory();
 }
 
-function mapCentralMemory(row){
-  return {id:row.id,label:row.label,created:row.created_at,features:row.features||{},description:row.description||"",vector:Array.isArray(row.vector)?row.vector:[]};
+function normalizeVector(v){
+  // O Supabase retorna JSONB como objeto; não converta o vetor estruturado para Object.values().
+  // Também mantém compatibilidade com registros antigos que eventualmente estejam vazios.
+  if(v && typeof v === "object" && !Array.isArray(v)){
+    return {
+      img:Array.isArray(v.img)?v.img:[],
+      img2:Array.isArray(v.img2)?v.img2:null,
+      txt:Array.isArray(v.txt)?v.txt:[],
+      feat:Array.isArray(v.feat)?v.feat:[]
+    };
+  }
+  return {img:[],img2:null,txt:[],feat:[]};
 }
+function mapCentralMemory(row){
+  return {id:row.id,label:row.label,created:row.created_at,features:row.features||{},description:row.description||"",vector:normalizeVector(row.vector)};
+}
+if(Array.isArray(memory)) memory=memory.map(m=>({...m,vector:normalizeVector(m.vector)}));
 
 async function loadCentralBrain(){
   try{
@@ -294,8 +308,11 @@ async function buildVector(image,desc,features,image2=null){
  return {img:a,img2:b,txt:textVector(desc),feat:featVector(features)}
 }
 function score(a,b){
- let di=dist(a.img,b.img); if(a.img2 && b.img2) di=(di+dist(a.img2,b.img2))/2;
- let dt=dist(a.txt,b.txt),df=dist(a.feat,b.feat); return 1/(0.15+0.50*di+0.25*dt+0.25*df);
+  const av=normalizeVector(a), bv=normalizeVector(b);
+  let di=dist(av.img,bv.img);
+  if(av.img2 && bv.img2) di=(di+dist(av.img2,bv.img2))/2;
+  let dt=dist(av.txt,bv.txt), df=dist(av.feat,bv.feat);
+  return 1/(0.15+0.50*di+0.25*dt+0.25*df);
 }
 function setStatus(t,cls=""){let s=document.getElementById("status");s.textContent=t;s.className="status "+cls}
 async function analyze(){
