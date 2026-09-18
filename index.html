@@ -3,11 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ChemicAI. — LDMF-4/7 3.7V</title>
-<link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#000000">
-<link rel="icon" href="icon-192.png">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>ChemicAI. LDMF-4/7 3.7V — LDMF-4/7 3.7V</title>
 <style>
 :root{
  --bg:#000;--panel:#050b0d;--panel2:#071318;--cyan:#53ffe0;--green:#18a86b;
@@ -67,7 +63,7 @@ body.locked header,body.locked main{display:none}
 
 <header>
   <div class="logo">Chemic<span>AI.</span></div>
-  <div class="badge">LDMF-4/7 3.7V · Learning Data Machine Foundation</div><div class="badge" id="cloudStatus">CÉREBRO: CONECTANDO</div>
+  <div class="badge">LDMF-4/7 3.7V · Learning Data Machine Foundation</div>
   <nav>
     <button class="tab active" data-screen="analise">ANÁLISE</button>
     <button class="tab private-tab" data-screen="treino">TREINAMENTO</button>
@@ -107,7 +103,7 @@ body.locked header,body.locked main{display:none}
 <div class="grid">
 <div class="card">
 <div class="section-title">APRENDIZADO</div><h1>Treinar a LDMF-4/7 3.7V</h1>
-<p class="sub">Crie exemplos reais. A IA extrai um vetor visual + vetor textual + características e sincroniza o conhecimento com o cérebro central quando o Supabase estiver configurado.</p>
+<p class="sub">Crie exemplos reais. A IA extrai um vetor visual + vetor textual + características e envia o padrão para o cérebro central do Supabase e mantém uma cópia local de segurança.</p>
 <label class="section-title">NOME DA CLASSE</label>
 <input id="label" type="text" placeholder="Ex.: água com gás">
 <div class="section-title" style="margin-top:18px">FOTOS DO EXEMPLO</div>
@@ -123,16 +119,13 @@ body.locked header,body.locked main{display:none}
 <div class="status" id="trainStatus"></div>
 </div>
 <div class="card"><div class="section-title">CÉREBRO AUTOMÁTICO</div><div id="memoryStats"></div>
-<div class="resultbox"><b>CÉREBRO CENTRAL</b><p class="sub">Os exemplos são sincronizados com o banco central. O armazenamento local permanece apenas como fallback enquanto a conexão não estiver configurada.</p><div id="brainFileStatus" class="small">Verificando conexão com o cérebro central...</div></div>
+<div class="resultbox"><b>APRENDIZADO AUTOMÁTICO ATIVO</b><p class="sub">Cada treinamento aprovado pelo administrador é salvo imediatamente no cérebro central do Supabase e fica disponível para análise em outros dispositivos.</p><div id="brainFileStatus" class="small">Cérebro local sincronizado neste navegador.</div></div>
 <div class="actions"><button class="btn" id="linkBrain">VINCULAR ARQUIVO DO CÉREBRO</button><button class="btn" id="backupBrain">CRIAR BACKUP</button><input id="importFile" type="file" accept=".json" style="display:none"></div></div>
 </div>
 </section>
 
 <section id="memoria" class="screen">
-<div class="grid">
-<div class="card"><div class="section-title">CÉREBRO CENTRAL · ADMINISTRAÇÃO</div><h1>Memórias da LDMF-4/7</h1><p class="sub">Somente a conta administradora pode alterar o conhecimento central.</p><input id="memorySearch" type="text" placeholder="Pesquisar memória..." style="margin-bottom:12px"><div id="memoryTable"></div></div>
-<div class="card"><div class="section-title">EDITOR DE MEMÓRIA</div><div id="memoryEditor" class="sub">Selecione uma memória para editar.</div></div>
-</div>
+<div class="card"><div class="section-title">EXEMPLOS APRENDIDOS</div><div id="memoryTable"></div></div>
 </section>
 
 
@@ -147,7 +140,13 @@ body.locked header,body.locked main{display:none}
     <div class="actions" style="justify-content:center"><button class="btn" id="scanReset">RESETAR AMOSTRA</button></div>
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+const SUPABASE_URL="https://xxexlbjlnyxofrggpcbf.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY="sb_publishable_063CSs7qgqrqNJz6TyoVCA_8QYHIsGr";
+const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const ADMIN_EMAIL="arthurdemeloaraujo10@gmail.com";
+
 const FEATURES=[
  ["estado","Estado físico",["desconhecido","líquido","sólido","suspensão","duas fases"]],
  ["cor","Cor predominante",["desconhecida","incolor","branco","amarelo","verde","roxo","vermelho","marrom","outra"]],
@@ -161,36 +160,94 @@ const FEATURES=[
  ["homog","Aspecto homogêneo",["desconhecido","sim","não"]]
 ];
 let sample={image:null,image2:null,desc:"",features:{}}, train={image:null,image2:null};
-// ===== CENTRAL BRAIN / SUPABASE =====
-// Cole somente a URL do projeto e a Publishable/anon key. Nunca coloque service-role/secret aqui.
-const SUPABASE_URL = "https://xxexlbjlnyxofrggpcbf.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "COLE_AQUI_SUA_PUBLISHABLE_KEY";
-const ADMIN_EMAIL = "arthurdemeloaraujo10@gmail.com";
-const BRAIN_TABLE = "brain_memories";
-const HISTORY_TABLE = "brain_history";
-const IMAGE_BUCKET = "chemicai-images";
-const supabaseConfigured = !!window.supabase && SUPABASE_URL.startsWith("https://") && !SUPABASE_PUBLISHABLE_KEY.includes("COLE_AQUI");
-const sb = supabaseConfigured ? window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}) : null;
 let memory=JSON.parse(localStorage.getItem("chemicai_memory_v47")||"[]");
 let lastResult=null;
 let brainFileHandle=null;
 const BRAIN_KEY="chemicai_brain_v47";
-function setCloudStatus(text,ok=false){const a=document.getElementById("cloudStatus"),b=document.getElementById("brainFileStatus"); if(a){a.textContent="CÉREBRO: "+text;a.style.borderColor=ok?"#18a86b":"#124d54"} if(b)b.textContent=text;}
-function localPayload(){return {version:"3.7V",ai:"LDMF-4/7 3.7V",program:"ChemicAI.",updated:new Date().toISOString(),memory};}
-function persistLocal(){const payload=localPayload();localStorage.setItem("chemicai_memory_v47",JSON.stringify(memory));localStorage.setItem(BRAIN_KEY,JSON.stringify(payload));syncBrainFile(payload).catch(()=>{});renderStats();renderMemory();}
-async function syncBrainFile(payload){if(!brainFileHandle)return;try{const writable=await brainFileHandle.createWritable();await writable.write(JSON.stringify(payload,null,2));await writable.close();}catch(e){}}
-async function linkBrainFile(){if(!window.showSaveFilePicker){alert("Seu navegador não permite sincronização automática de arquivos.");return;}try{brainFileHandle=await window.showSaveFilePicker({suggestedName:"ChemicAI_LDMF-4-7_cerebro.json",types:[{description:"Cérebro LDMF-4/7",accept:{"application/json":[".json"]}}]});await syncBrainFile(localPayload());}catch(e){}}
-function backupBrain(){const a=document.createElement("a"),url=URL.createObjectURL(new Blob([JSON.stringify(localPayload(),null,2)],{type:"application/json"}));a.href=url;a.download="ChemicAI_LDMF-4-7_cerebro_backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function memoryRow(m,i){return `<tr><td>${escape(m.label)}</td><td>${Object.values(m.features||{}).filter(x=>!["desconhecido","desconhecida"].includes(x)).slice(0,3).map(escape).join(", ")||"—"}</td><td>${m.created?new Date(m.created).toLocaleString("pt-BR"):"—"}</td><td><button class="btn" onclick="editMemory('${m.id||i}')">EDITAR</button> <button class="btn" onclick="removeMemory('${m.id||i}')">REMOVER</button></td></tr>`;}
-function renderStats(){const el=document.getElementById("memoryStats");if(el)el.innerHTML=`<div class="resultbox"><b>${memory.length}</b> exemplos no cérebro carregado.<br><span class="small">${new Set(memory.map(x=>x.label)).size} classes distintas · sincronização central</span></div>`;}
-function renderMemory(){const el=document.getElementById("memoryTable");if(!el)return;const q=(document.getElementById("memorySearch")?.value||"").toLowerCase();const rows=memory.filter(m=>(m.label||"").toLowerCase().includes(q)||(m.description||"").toLowerCase().includes(q));if(!rows.length){el.innerHTML='<div class="empty">Nenhuma memória encontrada.</div>';return}el.innerHTML=`<table><tr><th>Classe</th><th>Características</th><th>Data</th><th>Ações</th></tr>${rows.map((m)=>memoryRow(m,memory.indexOf(m))).join("")}</table>`;}
-function editMemory(id){const i=memory.findIndex(m=>String(m.id)===String(id)||String(memory.indexOf(m))===String(id));const m=memory[i];if(!m)return;const el=document.getElementById("memoryEditor");el.innerHTML=`<label class="section-title">CLASSE</label><input id="editLabel" type="text" value="${escape(m.label)}"><label class="section-title" style="display:block;margin-top:15px">DESCRIÇÃO</label><textarea id="editDesc" style="min-height:100px">${escape(m.description||"")}</textarea><div class="section-title" style="margin-top:15px">CARACTERÍSTICAS</div><div class="features" id="editFeatures"></div><div class="actions"><button class="btn primary" onclick="saveEditedMemory('${escape(String(m.id||i))}')">SALVAR NO CÉREBRO</button><button class="btn" onclick="document.getElementById('memoryEditor').innerHTML='Selecione uma memória para editar.'">CANCELAR</button></div>`;makeFeatures("editFeatures");Object.entries(m.features||{}).forEach(([k,v])=>{const s=document.querySelector(`#editFeatures select[data-key="${k}"]`);if(s)s.value=v;});}
-async function saveEditedMemory(id){if(accessMode!=="private")return;const i=memory.findIndex(m=>String(m.id)===String(id)||String(memory.indexOf(m))===String(id));if(i<0)return;const m=memory[i];m.label=document.getElementById("editLabel").value.trim()||m.label;m.description=document.getElementById("editDesc").value;m.features=readFeatures("editFeatures");m.updated=new Date().toISOString();if(sb){const {error}=await sb.from(BRAIN_TABLE).update({label:m.label,description:m.description,features:m.features,vector:m.vector,image_url:m.image_url||null,image2_url:m.image2_url||null,updated_at:m.updated}).eq("id",m.id);if(error){alert("Não foi possível salvar no cérebro central: "+error.message);return;}await sb.from(HISTORY_TABLE).insert({memory_id:m.id,action:"update",actor_email:ADMIN_EMAIL,details:{label:m.label}});}persistLocal();document.getElementById("memoryEditor").innerHTML="Memória atualizada no cérebro central.";}
-async function removeMemory(id){if(accessMode!=="private")return;const i=memory.findIndex(m=>String(m.id)===String(id)||String(memory.indexOf(m))===String(id));if(i<0)return;const m=memory[i];if(!confirm(`Excluir a memória "${m.label}" do cérebro central?`))return;if(sb){const {error}=await sb.from(BRAIN_TABLE).delete().eq("id",m.id);if(error){alert("Não foi possível excluir: "+error.message);return;}await sb.from(HISTORY_TABLE).insert({memory_id:m.id,action:"delete",actor_email:ADMIN_EMAIL,details:{label:m.label}});}memory.splice(i,1);persistLocal();}
-function dataUrlToBlob(dataUrl){const [h,b]=dataUrl.split(",");const mime=(h.match(/data:(.*?);/)||[])[1]||"image/jpeg";const bin=atob(b),arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);return new Blob([arr],{type:mime});}
-async function uploadMemoryImage(dataUrl,id,suffix){if(!sb||!dataUrl)return null;const path=`${id}/${suffix}.jpg`;const {error}=await sb.storage.from(IMAGE_BUCKET).upload(path,dataUrlToBlob(dataUrl),{contentType:"image/jpeg",upsert:true});if(error)throw error;return sb.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;}
-async function loadCentralBrain(){if(!sb){setCloudStatus("NÃO CONFIGURADO");renderStats();renderMemory();return false;}try{const {data,error}=await sb.from(BRAIN_TABLE).select("id,label,created_at,updated_at,features,description,vector,image_url,image2_url").order("created_at",{ascending:true});if(error)throw error;memory=(data||[]).map(x=>({id:x.id,label:x.label,created:x.created_at,updated:x.updated_at,features:x.features||{},description:x.description||"",vector:x.vector,image_url:x.image_url||null,image2_url:x.image2_url||null}));persistLocal();setCloudStatus(`ONLINE · ${memory.length} MEMÓRIAS`,true);return true;}catch(e){setCloudStatus("ERRO DE CONEXÃO");console.warn(e);renderStats();renderMemory();return false;}}
-async function pushMemoryToCentral(entry){if(!sb)return false;const row={id:entry.id,label:entry.label,description:entry.description,features:entry.features,vector:entry.vector,image_url:null,image2_url:null,created_at:entry.created,updated_at:entry.created,created_by:ADMIN_EMAIL};const {error}=await sb.from(BRAIN_TABLE).insert(row);if(error)throw error;try{row.image_url=await uploadMemoryImage(entry.image,entry.id,"image1");if(entry.image2)row.image2_url=await uploadMemoryImage(entry.image2,entry.id,"image2");await sb.from(BRAIN_TABLE).update({image_url:row.image_url,image2_url:row.image2_url}).eq("id",entry.id);}catch(e){console.warn("Imagem não sincronizada",e);}await sb.from(HISTORY_TABLE).insert({memory_id:entry.id,action:"insert",actor_email:ADMIN_EMAIL,details:{label:entry.label}});return true;}
+let centralReady=false;
+
+function persistBrain(){
+  const payload={version:"3.7",ai:"LDMF-4/7 3.7V",program:"ChemicAI.",updated:new Date().toISOString(),memory};
+  localStorage.setItem("chemicai_memory_v47",JSON.stringify(memory));
+  localStorage.setItem(BRAIN_KEY,JSON.stringify(payload));
+  syncBrainFile(payload).catch(()=>{});
+  renderStats();renderMemory();
+}
+
+function mapCentralMemory(row){
+  return {id:row.id,label:row.label,created:row.created_at,features:row.features||{},description:row.description||"",vector:Array.isArray(row.vector)?row.vector:[]};
+}
+
+async function loadCentralBrain(){
+  try{
+    const {data,error}=await supabaseClient.from("brain_memories").select("id,label,description,features,vector,created_by,created_at,updated_at").order("created_at",{ascending:true});
+    if(error) throw error;
+    const remote=(data||[]).map(mapCentralMemory);
+    const remoteIds=new Set(remote.map(x=>x.id));
+    memory=remote;
+    localStorage.setItem("chemicai_memory_v47",JSON.stringify(memory));
+    centralReady=true;
+    persistBrain();
+    const el=document.getElementById("brainFileStatus");
+    if(el)el.textContent=`Cérebro central conectado · ${memory.length} exemplos sincronizados.`;
+    return true;
+  }catch(e){
+    centralReady=false;
+    const el=document.getElementById("brainFileStatus");
+    if(el)el.textContent="Cérebro central indisponível; usando memória local.";
+    return false;
+  }
+}
+
+async function syncLocalToCentral(){
+  if(!centralReady || accessMode!=="private") return;
+  const local=memory.filter(m=>m && m.id);
+  if(!local.length)return;
+  const rows=local.map(m=>({id:m.id,label:m.label,description:m.description||"",features:m.features||{},vector:m.vector||[],created_by:ADMIN_EMAIL,created_at:m.created||new Date().toISOString(),updated_at:new Date().toISOString()}));
+  const {error}=await supabaseClient.from("brain_memories").upsert(rows,{onConflict:"id"});
+  if(error) console.warn("Central brain sync:",error.message);
+}
+
+async function saveMemoryCentral(m){
+  const {data,error}=await supabaseClient.from("brain_memories").upsert({id:m.id,label:m.label,description:m.description||"",features:m.features||{},vector:m.vector||[],created_by:ADMIN_EMAIL,created_at:m.created||new Date().toISOString(),updated_at:new Date().toISOString()},{onConflict:"id"}).select().single();
+  if(error) throw error;
+  return mapCentralMemory(data);
+}
+
+async function deleteMemoryCentral(id){
+  const {error}=await supabaseClient.from("brain_memories").delete().eq("id",id);
+  if(error) throw error;
+}
+async function syncBrainFile(payload){
+  if(!brainFileHandle)return;
+  try{
+    const writable=await brainFileHandle.createWritable();
+    await writable.write(JSON.stringify(payload,null,2));
+    await writable.close();
+    const el=document.getElementById("brainFileStatus");
+    if(el)el.textContent="Arquivo do cérebro sincronizado automaticamente.";
+  }catch(e){
+    const el=document.getElementById("brainFileStatus");
+    if(el)el.textContent="Cérebro local salvo. A sincronização do arquivo foi pausada.";
+  }
+}
+async function linkBrainFile(){
+  if(!window.showSaveFilePicker){
+    alert("Seu navegador não permite sincronização automática de arquivos. O cérebro local continuará funcionando automaticamente.");
+    return;
+  }
+  try{
+    brainFileHandle=await window.showSaveFilePicker({suggestedName:"ChemicAI_LDMF-4-7_cerebro.json",types:[{description:"Cérebro da LDMF-4/7 3.7V",accept:{"application/json":[".json"]}}]});
+    const payload={version:"3.7",ai:"LDMF-4/7 3.7V",program:"ChemicAI. LDMF-4/7 3.7V",updated:new Date().toISOString(),memory};
+    await syncBrainFile(payload);
+    document.getElementById("brainFileStatus").textContent="Arquivo vinculado. Novos aprendizados serão gravados nele automaticamente.";
+  }catch(e){}
+}
+function backupBrain(){
+  const payload={version:"3.7",ai:"LDMF-4/7 3.7V",program:"ChemicAI. LDMF-4/7 3.7V",updated:new Date().toISOString(),memory};
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}));a.download="ChemicAI_LDMF-4-7_cerebro_backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
 function makeFeatures(target,idPrefix){
  const el=document.getElementById(target); el.innerHTML="";
  FEATURES.forEach(([key,name,opts])=>{
@@ -263,16 +320,42 @@ function showConclusion(html){const c=document.getElementById("scanConclusion");
 function closeAnalysisOverlay(){document.getElementById("analysisOverlay").classList.remove("active");}
 
 async function teach(){
- if(accessMode!=="private"){document.getElementById("trainStatus").textContent="Acesso de treinamento restrito à conta administradora.";return}
  let label=document.getElementById("label").value.trim();if(!label){document.getElementById("trainStatus").textContent="Informe o nome da classe.";return}
  if(!train.image){document.getElementById("trainStatus").textContent="Insira uma foto de treinamento.";return}
- const dual=document.getElementById("trainDualMode").checked;if(dual&&!train.image2){document.getElementById("trainStatus").textContent="O modo com duas imagens está ativo: insira a segunda foto.";return}
+ const dual=document.getElementById("trainDualMode").checked;if(dual && !train.image2){document.getElementById("trainStatus").textContent="O modo com duas imagens está ativo: insira a segunda foto.";return}
  let f=readFeatures("trainFeatures"),d=document.getElementById("trainDesc").value,v=await buildVector(train.image,d,f,dual?train.image2:null);
- const entry={id:crypto.randomUUID(),label,created:new Date().toISOString(),features:f,description:d,vector:v,image:train.image,image2:dual?train.image2:null};
- document.getElementById("trainStatus").textContent=sb?"Enviando conhecimento ao cérebro central...":"Cérebro central não configurado; salvando localmente.";
- if(sb){try{await pushMemoryToCentral(entry);}catch(e){document.getElementById("trainStatus").textContent="Falha ao salvar no cérebro central: "+e.message;return;}}
- memory.push(entry);persistLocal();document.getElementById("trainStatus").textContent=`Exemplo aprendido: ${label}. A memória agora tem ${memory.length} exemplos.`;
+ const newMemory={id:crypto.randomUUID(),label,created:new Date().toISOString(),features:f,description:d,vector:v};
+ try{
+   if(accessMode!=="private") throw new Error("Apenas o administrador pode treinar.");
+   const saved=await saveMemoryCentral(newMemory);
+   memory.push(saved);
+   persistBrain();
+   document.getElementById("trainStatus").textContent=`Exemplo aprendido e enviado ao cérebro central: ${label}. A memória agora tem ${memory.length} exemplos.`;
+   document.getElementById("brainFileStatus").textContent="Cérebro central atualizado em todos os dispositivos.";
+ }catch(e){
+   document.getElementById("trainStatus").textContent=`Falha ao salvar no cérebro central: ${e.message||"erro de conexão"}`;
+   return;
+ }
  document.getElementById("label").value="";document.getElementById("trainDesc").value="";train.image=null;train.image2=null;document.getElementById("trainText").innerHTML="IMAGEM 1<br><span class=\"small\">Clique para inserir foto</span>";document.getElementById("trainText2").innerHTML="IMAGEM 2<br><span class=\"small\">Clique para inserir foto</span>";document.getElementById("trainFile").value="";document.getElementById("trainFile2").value="";
+ persistBrain();
+}
+function renderStats(){document.getElementById("memoryStats").innerHTML=`<div class="resultbox"><b>${memory.length}</b> exemplos na memória central.<br><span class="small">${new Set(memory.map(x=>x.label)).size} classes distintas · aprendizado incremental</span></div>`}
+function renderMemory(){
+ let el=document.getElementById("memoryTable");if(!memory.length){el.innerHTML='<div class="empty">A memória está vazia.</div>';return}
+ el.innerHTML=`<table><tr><th>Classe</th><th>Características</th><th>Data</th><th></th></tr>${memory.map((m,i)=>`<tr><td>${escape(m.label)}</td><td>${Object.values(m.features).filter(x=>!["desconhecido","desconhecida"].includes(x)).slice(0,3).join(", ")||"—"}</td><td>${new Date(m.created).toLocaleString("pt-BR")}</td><td><button class="btn" onclick="removeMemory(${i})">REMOVER</button></td></tr>`).join("")}</table>`;
+}
+async function removeMemory(i){
+ const item=memory[i];
+ if(!item)return;
+ try{
+   if(accessMode!=="private")return;
+   await deleteMemoryCentral(item.id);
+   memory.splice(i,1);
+   persistBrain();
+   document.getElementById("brainFileStatus").textContent="Memória removida do cérebro central.";
+ }catch(e){
+   document.getElementById("brainFileStatus").textContent="Não foi possível remover do cérebro central.";
+ }
 }
 function resetSample(){
  sample={image:null,image2:null,desc:"",features:{}};document.getElementById("file").value="";document.getElementById("file2").value="";document.getElementById("dropText").innerHTML='IMAGEM 1 / AMOSTRA<br><span class="small">Clique ou arraste uma fotografia</span>';document.getElementById("dropText2").innerHTML='IMAGEM 2 / COMPARAÇÃO<br><span class="small">Clique ou arraste uma fotografia</span>';document.getElementById("drop2").style.display="none";document.getElementById("dualMode").checked=false;document.getElementById("desc").value="";document.querySelectorAll("#features select").forEach(s=>s.selectedIndex=0);document.getElementById("bar").style.width="0";document.getElementById("result").innerHTML='<div class="empty">Nenhuma amostra analisada.</div>';lastResult=null;setStatus("");closeAnalysisOverlay();document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));document.querySelector('.tab[data-screen="analise"]').classList.add("active");document.querySelectorAll(".screen").forEach(x=>x.classList.remove("active"));document.getElementById("analise").classList.add("active");window.scrollTo(0,0);}
@@ -287,18 +370,54 @@ renderStats();renderMemory();
 
 // ===== ACCESS / ACCOUNT FLOW =====
 let accessMode="locked";
-const authScreen=document.getElementById("authScreen"),authCard=document.getElementById("authCard"),authFeedback=document.getElementById("authFeedback");
+const authScreen=document.getElementById("authScreen"), authCard=document.getElementById("authCard"), authFeedback=document.getElementById("authFeedback");
 function authMessage(text,type=""){authFeedback.textContent=text;authFeedback.className="auth-feedback"+(type?" "+type:"");}
-function setMode(mode){accessMode=mode;document.body.classList.remove("locked","private-mode","visitor-mode");document.body.classList.add(mode+"-mode");authScreen.classList.toggle("hidden",mode!=="locked");document.querySelectorAll(".screen").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));document.getElementById("analise").classList.add("active");document.querySelector('.tab[data-screen="analise"]').classList.add("active");document.querySelectorAll(".private-tab").forEach(t=>t.style.display=mode==="private"?"inline-block":"none");document.getElementById("logoutBtn").style.display=(mode==="private"||mode==="visitor")?"inline-block":"none";window.scrollTo(0,0);}
-async function adminLogin(){if(!sb){authMessage("O cérebro central ainda não foi configurado. Insira a Publishable key no arquivo antes de usar o login online.","error");return;}const email=document.getElementById("loginEmail").value.trim().toLowerCase(),pass=document.getElementById("loginPassword").value;authCard.classList.add("processing");if(email!==ADMIN_EMAIL){setTimeout(()=>{authCard.classList.remove("processing");authMessage("Acesso recusado. Esta conta não é a administradora do ChemicAI.","error")},400);return;}const {data,error}=await sb.auth.signInWithPassword({email,password:pass});if(error){setTimeout(()=>{authCard.classList.remove("processing");authMessage("Acesso recusado. Verifique e-mail e senha.","error")},400);return;}if((data.user?.email||"").toLowerCase()!==ADMIN_EMAIL){await sb.auth.signOut();authMessage("Conta autenticada sem permissão de administrador.","error");return;}authMessage("Credenciais confirmadas. Núcleo central liberado.","ok");await loadCentralBrain();setTimeout(()=>{authCard.classList.remove("processing");setMode("private")},500);}
-async function logout(){if(sb)await sb.auth.signOut();setMode("locked");document.getElementById("loginPassword").value="";authMessage("Sessão encerrada. Digite novamente o e-mail e a senha para entrar.");}
-document.getElementById("visitorBtn").onclick=async()=>{if(sb){await sb.auth.signOut();}authMessage("Acesso visitante liberado. Modo somente ANÁLISE ativado.","ok");setTimeout(()=>setMode("visitor"),350)};
-document.getElementById("loginBtn").onclick=adminLogin;
-document.getElementById("loginPassword").addEventListener("keydown",e=>{if(e.key==="Enter")adminLogin()});
+function setMode(mode){
+ accessMode=mode; document.body.classList.remove("locked","private-mode","visitor-mode"); document.body.classList.add(mode+"-mode");
+ authScreen.classList.toggle("hidden",mode!=="locked");
+ document.querySelectorAll(".screen").forEach(x=>x.classList.remove("active"));
+ document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+ const target=document.getElementById("analise"); target.classList.add("active"); document.querySelector('.tab[data-screen="analise"]').classList.add("active");
+ const privateTabs=document.querySelectorAll('.private-tab');
+ privateTabs.forEach(t=>t.style.display=(mode==="private")?"inline-block":"none");
+ document.getElementById("logoutBtn").style.display=(mode==="private"||mode==="visitor")?"inline-block":"none";
+ window.scrollTo(0,0);
+}
+async function enterVisitor(){
+ setMode("visitor");
+ authMessage("Modo visitante ativado. Apenas ANÁLISE está disponível.","ok");
+ await loadCentralBrain();
+}
+async function logout(){
+ try{await supabaseClient.auth.signOut()}catch(e){}
+ setMode("locked");
+ document.getElementById("loginPassword").value="";
+ authMessage("Sessão encerrada. Digite novamente o e-mail e a senha para entrar.");
+}
+document.getElementById("visitorBtn").onclick=()=>enterVisitor();
+document.getElementById("loginBtn").onclick=async()=>{
+ const email=document.getElementById("loginEmail").value.trim().toLowerCase(), pass=document.getElementById("loginPassword").value;
+ authCard.classList.add("processing");
+ authMessage("Autenticando no núcleo central...");
+ try{
+   const {data,error}=await supabaseClient.auth.signInWithPassword({email,password:pass});
+   if(error) throw error;
+   if((data.user?.email||"").toLowerCase()!==ADMIN_EMAIL){await supabaseClient.auth.signOut();throw new Error("Conta sem permissão de administrador.")}
+   authMessage("Credenciais confirmadas. Núcleo central liberado.","ok");
+   await new Promise(r=>setTimeout(r,500));
+   setMode("private");
+   await loadCentralBrain();
+   await syncLocalToCentral();
+   await loadCentralBrain();
+ }catch(e){
+   authMessage("Acesso recusado: e-mail ou senha inválidos, ou conta sem permissão.","error");
+ }finally{authCard.classList.remove("processing")}
+};
+document.getElementById("loginPassword").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("loginBtn").click()});
 document.getElementById("logoutBtn").onclick=logout;
-document.getElementById("memorySearch").addEventListener("input",renderMemory);
-(async()=>{if(sb){const {data}=await sb.auth.getSession();if(data.session?.user?.email?.toLowerCase()===ADMIN_EMAIL){await loadCentralBrain();setMode("private");authMessage("Sessão administradora restaurada.","ok");}else{await sb.auth.signOut();setCloudStatus("ONLINE · VISITANTE",true);}}else{setCloudStatus("CONFIGURAÇÃO PENDENTE");}renderStats();renderMemory();})();
+
+// Visitantes podem ler o cérebro publicado sem autenticação; administradores entram pelo Supabase Auth.
+setMode("locked");
 </script>
-<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));}</script>
 </body>
 </html>
